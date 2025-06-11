@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Veerappan Kurupp Egg Price Finder</title>
+  <style>
+    :root {
+      --bg: #fefae0;
+      --primary: #283618;
+      --accent: #606c38;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: var(--bg);
+      color: var(--primary);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      text-align: center;
+    }
+
+    .price {
+      font-size: 10rem;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .location {
+      font-size: 1rem;
+      color: var(--accent);
+      margin-top: 0.3rem;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      font-size: 0.95rem;
+      color: #555;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div>
+    <div class="price" id="price">₹....</div>
+    <div class="location" id="location">detecting locationnn...</div>
+    <div class="location" id="distance-info"></div>
+  </div>
+
+  <div class="footer">
+    Data source: <a href="https://www.e2necc.com/home/eggprice" target="_blank">NECC Official Site</a> |
+    Made with 🥚 by <a href="https://www.github.com/nlkguy" target="_blank">nlkguy</a> | 
+    Approved by 👮 <a href="https://youtu.be/k7adknGDOCo?t=2421" target="_blank">Sub-Inspector Veerappan Kurupp</a>
+  </div>
+
+  <script>
+    // danke for chattgptea for the latlongs list , not sure its accuraterooney
+    const cityGeo = {
+      "Ahmedabad": [23.0225, 72.5714],
+      "Ajmer": [26.4499, 74.6399],
+      "Barwala": [29.3681, 76.3842],
+      "Bengaluru (CC)": [12.9716, 77.5946],
+      "Brahmapur (OD)": [19.3149, 84.7941],
+      "Chennai (CC)": [13.0827, 80.2707],
+      "Chittoor": [13.2172, 79.1003],
+      "Delhi (CC)": [28.6139, 77.2090],
+      "Hyderabad (CC)": [17.3850, 78.4867],
+      "Pune": [18.5204, 73.8567],
+      "Mumbai (CC)": [19.0760, 72.8777],
+      "Nashik": [19.9975, 73.7898],
+      "Nagpur": [21.1458, 79.0882],
+      "Kolkata (CC)": [22.5726, 88.3639],
+      "Lucknow": [26.8467, 80.9462],
+      "Kanpur": [26.4499, 80.3319],
+      "Jaipur": [26.9124, 75.7873],
+      "Patna": [25.5941, 85.1376],
+      "Ranchi": [23.3441, 85.3096],
+      "Raipur": [21.2514, 81.6296],
+      "Bhopal": [23.2599, 77.4126],
+      "Indore": [22.7196, 75.8577],
+      "Trivandrum (CC)": [8.5241, 76.9366],
+      "Kochi": [9.9312, 76.2673],
+      "Coimbatore": [11.0168, 76.9558],
+      "Madurai": [9.9252, 78.1198],
+      "Visakhapatnam (CC)": [17.6868, 83.2185],
+      "Vijayawada": [16.5062, 80.6480],
+      "Warangal": [17.9784, 79.5941],
+      "Hubli": [15.3647, 75.1240],
+      "Mysuru": [12.2958, 76.6394],
+      "Belagavi": [15.8497, 74.4977],
+      "Guwahati": [26.1445, 91.7362],
+      "Shillong": [25.5788, 91.8933],
+      "Itanagar": [27.0844, 93.6053],
+      "Imphal": [24.8170, 93.9368],
+      "Aizawl": [23.7271, 92.7176],
+      "Agartala": [23.8315, 91.2868],
+      "Siliguri": [26.7271, 88.3953],
+      "Jammu": [32.7266, 74.8570],
+      "Srinagar": [34.0837, 74.7973],
+      "Amritsar": [31.6340, 74.8723],
+      "Ludhiana": [30.9000, 75.8573],
+      "Chandigarh": [30.7333, 76.7794],
+      "Dehradun": [30.3165, 78.0322],
+      "Panaji": [15.4909, 73.8278]
+    };
+
+    // haversine formula - calc dist b/w latlongs
+
+    function getDistance([lat1, lon1], [lat2, lon2]) {
+      const R = 6371;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // find nearest city
+    function findNearestCity(userLat, userLon) {
+      let nearest = null;
+      let minDistance = Infinity;
+      for (const [city, [lat, lon]] of Object.entries(cityGeo)) {
+        const dist = getDistance([userLat, userLon], [lat, lon]);
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearest = city;
+        }
+      }
+      return nearest;
+    }
+    // scrape necc prices table 
+    // use allorgines proxy n avoid CORS issue
+    // https://api.allorigins.win/get?url=
+
+    async function fetchPrices() {
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent("https://www.e2necc.com/home/eggprice")}`;
+      const res = await fetch(proxyUrl);
+      const data = await res.json();
+      const html = document.createElement("div");
+      html.innerHTML = data.contents;
+
+      const rows = html.querySelectorAll("#pan2 table tr");
+      const prices = {};
+      rows.forEach(row => {
+        const cols = row.querySelectorAll("td");
+        if (cols.length > 1) {
+          const city = cols[0].innerText.trim();
+          const avg = cols[cols.length - 1].innerText.trim();
+          if (!isNaN(parseFloat(avg))) {
+            prices[city] = avg;
+          }
+        }
+      });
+      return prices;
+    }
+
+    // get current IP loc - ipapi.co
+    async function main() {
+      try {
+        const loc = await fetch("https://ipapi.co/json/").then(r => r.json());
+        // get latlong from the json res
+        const userLat = loc.latitude;
+        const userLon = loc.longitude;
+
+        const nearestCity = findNearestCity(userLat, userLon);
+        const prices = await fetchPrices();
+
+        document.getElementById("price").innerText = `₹${prices[nearestCity]/100 || "....."}`;
+
+        if (nearestCity) {
+          const distance = getDistance([userLat, userLon], cityGeo[nearestCity]).toFixed(2);
+          document.getElementById("location").innerText = `You are in ${loc.city}`;
+          document.getElementById("distance-info").innerText = `Nearest NECC city: ${nearestCity} (${distance} km away)`;
+        } else {
+          document.getElementById("location").innerText = "Location not matched";
+          document.getElementById("distance-info").innerText = "";
+        }
+
+      } catch (err) {
+        document.getElementById("price").innerText = "⚠️";
+        document.getElementById("location").innerText = "Failed to load data.";
+        document.getElementById("distance-info").innerText = "";
+        console.error(err);
+      }
+    }
+
+    main();
+  </script>
+
+</body>
+</html>
